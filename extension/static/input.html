@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="light" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>console.tty input</title>
+    <link rel="stylesheet" href="input.css" />
+  </head>
+  <body>
+    <div class="indicator" role="status">
+      <span class="led" aria-hidden="true"></span>
+      <strong id="badge">console.tty connecting</strong>
+      <span id="session"></span>
+      <span
+        id="scrollback"
+        hidden
+        title="Scrollback offset / retained history lines"
+      ></span>
+      <span id="hints" hidden><kbd id="shortcut">Ctrl+Shift+9</kbd></span>
+      <button
+        id="return"
+        type="button"
+        aria-label="Return to page"
+        title="Return to page"
+      >
+        &#215;
+      </button>
+    </div>
+    <label class="sr-only" for="sink"
+      >Terminal input. Press Ctrl+Shift+9 to return to the page.</label
+    >
+    <textarea
+      id="sink"
+      aria-label="Terminal input"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+    ></textarea>
+    <script src="input.js"></script>
+  </body>
+</html>

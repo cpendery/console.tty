@@ -1,0 +1,9 @@
+{
+  "name": "@console-tty/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@textjs/core": "=1.5.0"
+  }
+}

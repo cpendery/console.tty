@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "console.tty",
+  "version": "0.1.0",
+  "description": "A paired local shell in DevTools, available on HTTP(S) pages.",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "scripting",
+    "webNavigation",
+    "alarms"
+  ],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["console-renderer.js"],
+      "world": "ISOLATED",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["console-tty-trigger.js"],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "background": { "service_worker": "worker.js" },
+  "action": { "default_title": "console.tty — Ctrl+Shift+9 toggles input" },
+  "commands": {
+    "toggle-terminal-input": {
+      "suggested_key": { "default": "Ctrl+Shift+9", "mac": "MacCtrl+Shift+9" },
+      "description": "Toggle console.tty terminal input"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["input.html", "input.js", "input.css"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; frame-ancestors http: https:"
+  }
+}

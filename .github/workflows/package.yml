@@ -1,0 +1,27 @@
+name: Package
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  binary:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: "0.16.0"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-tty-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            target/release/console-tty
+            target/release/console-tty.exe
