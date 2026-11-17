@@ -2,6 +2,8 @@
 
 `console.tty` is a real terminal built into your web browser's console. `console.tty` supports Windows, Linux, & macOS using a browser extension and rust executable for managing terminal sessions.
 
+https://github.com/user-attachments/assets/3b3dd8c2-a683-4cc1-8400-d8149b8cdbb5
+
 ```js
 console.tty("bash");
 ```
