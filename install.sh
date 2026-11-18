@@ -25,8 +25,11 @@ case "$(uname -m)" in
   *) fail "Unsupported architecture: $(uname -m)" ;;
 esac
 
+command -v unzip >/dev/null 2>&1 || fail "unzip is required."
+
 bin_dir="$HOME/.local/bin"
 data_dir="$data_home/console-tty"
+extension_dir="$data_dir/extension"
 shell="${SHELL:-/bin/sh}"
 asset="console-tty-$arch-$os.tar.gz"
 version="${CONSOLE_TTY_VERSION:-latest}"
@@ -55,11 +58,14 @@ download "$base/console-tty-extension.zip" "$tmp/extension.zip"
 contents="$(tar -tzf "$tmp/cli.tar.gz")"
 [ "$contents" = console-tty ] || fail "Unexpected CLI archive contents."
 tar -xzf "$tmp/cli.tar.gz" -C "$tmp"
+unzip -q "$tmp/extension.zip" -d "$tmp/extension"
+[ -f "$tmp/extension/manifest.json" ] || fail "Unexpected extension archive contents."
 mkdir -p "$bin_dir" "$data_dir"
 # Rename rather than overwrite an executable that may still be running.
 install -m 755 "$tmp/console-tty" "$bin_dir/.console-tty.tmp.$$"
 mv -f "$bin_dir/.console-tty.tmp.$$" "$bin_dir/console-tty"
-mv -f "$tmp/extension.zip" "$data_dir/console-tty-extension.zip"
+rm -rf -- "$extension_dir"
+mv "$tmp/extension" "$extension_dir"
 
 case ":${PATH:-}:" in
   *":$bin_dir:"*) ;;
@@ -93,4 +99,4 @@ case ":${PATH:-}:" in
     ;;
 esac
 
-printf 'Installed console-tty.\n1. Unzip %s/console-tty-extension.zip; load that folder at chrome://extensions (Developer mode > Load unpacked).\n2. Run: console-tty native-host install YOUR_EXTENSION_ID (Edge: add --browser edge).\n' "$data_dir"
+printf 'Installed console-tty.\n1. Load %s at chrome://extensions (Developer mode > Load unpacked).\n2. Run: console-tty native-host install YOUR_EXTENSION_ID (Edge: add --browser edge).\n' "$extension_dir"

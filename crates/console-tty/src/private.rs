@@ -24,6 +24,20 @@ mod tests {
         assert!(std::path::Path::new(registered).is_absolute());
         assert!(!registered.starts_with(r"\\?\"));
     }
+
+    #[test]
+    fn private_directory_and_replaced_files_are_owned_by_the_current_user() {
+        let root = std::env::temp_dir().join(format!("ct-acl-{}", uuid::Uuid::new_v4().simple()));
+        super::directory(&root).unwrap();
+        let path = root.join("state.json");
+        for bytes in [b"initial".as_slice(), b"updated".as_slice()] {
+            super::write(&path, bytes).unwrap();
+            super::check(&path).unwrap();
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(root).unwrap();
+    }
 }
 
 #[derive(Clone)]
@@ -261,7 +275,7 @@ mod windows {
                 }
                 let sid_string = String::from_utf16_lossy(std::slice::from_raw_parts(text, len));
                 LocalFree(text as _);
-                let sddl: Vec<u16> = format!("D:P(A;OICI;GA;;;{sid_string})")
+                let sddl: Vec<u16> = format!("O:{sid_string}D:P(A;OICI;GA;;;{sid_string})")
                     .encode_utf16()
                     .chain(Some(0))
                     .collect();
@@ -286,7 +300,9 @@ mod windows {
             unsafe {
                 SetFileSecurityW(
                     path.as_ptr(),
-                    DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                    OWNER_SECURITY_INFORMATION
+                        | DACL_SECURITY_INFORMATION
+                        | PROTECTED_DACL_SECURITY_INFORMATION,
                     descriptor.0,
                 )
             } != 0,

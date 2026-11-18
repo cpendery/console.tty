@@ -602,6 +602,18 @@ mod tests {
                 "controller".into(),
             )
             .unwrap();
+            #[cfg(unix)]
+            if shell == Shell::Pwsh {
+                // Before raw mode, the PTY translates Enter's CR to LF.
+                let until = Instant::now() + std::time::Duration::from_secs(8);
+                while !session.master.get_termios().is_some_and(|termios| {
+                    termios.local_flags.bits() & libc::ICANON == 0
+                        && termios.input_flags.bits() & libc::ICRNL == 0
+                }) {
+                    assert!(Instant::now() < until, "pwsh did not enter raw input mode");
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+            }
             let marker = format!("CTTY_{}_INTERACTIVE", shell.name().to_ascii_uppercase());
             let command = match shell {
                 Shell::Nu => format!("print '{marker}'\r"),
@@ -629,7 +641,19 @@ mod tests {
                 std::thread::sleep(std::time::Duration::from_millis(40));
             }
             session.close();
-            assert!(found, "{} did not execute interactive input", shell.name());
+            assert!(
+                found,
+                "{} did not execute interactive input:\n{}",
+                shell.name(),
+                session
+                    .snapshot()
+                    .unwrap()
+                    .cells
+                    .chunks(100)
+                    .map(|line| line.iter().map(|cell| cell.0.as_str()).collect::<String>())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
         }
     }
 

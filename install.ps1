@@ -18,6 +18,7 @@ if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
 
 $binDir = Join-Path $env:LOCALAPPDATA "Programs\console-tty\bin"
 $dataDir = Join-Path $env:LOCALAPPDATA "console-tty"
+$extensionDir = Join-Path $dataDir "extension"
 $version = $env:CONSOLE_TTY_VERSION
 $base = "https://github.com/cpendery/console.tty/releases"
 if ([string]::IsNullOrWhiteSpace($version) -or $version -eq "latest") {
@@ -40,12 +41,20 @@ try {
     if ($files.Count -ne 1 -or $files[0].Name -ne "console-tty.exe" -or $files[0].PSIsContainer) {
         throw "Unexpected CLI archive contents."
     }
+    $extensionExtractDir = Join-Path $tempDir "extension"
+    Expand-Archive -LiteralPath $extension -DestinationPath $extensionExtractDir
+    if (-not (Test-Path -LiteralPath (Join-Path $extensionExtractDir "manifest.json") -PathType Leaf)) {
+        throw "Unexpected extension archive contents."
+    }
 
     New-Item -ItemType Directory -Path $binDir, $dataDir -Force | Out-Null
     $destination = Join-Path $binDir "console-tty.exe"
     Copy-Item -LiteralPath $files[0].FullName -Destination $destination -Force
     Unblock-File -LiteralPath $destination
-    Move-Item -LiteralPath $extension -Destination (Join-Path $dataDir "console-tty-extension.zip") -Force
+    if (Test-Path -LiteralPath $extensionDir) {
+        Remove-Item -LiteralPath $extensionDir -Recurse -Force
+    }
+    Move-Item -LiteralPath $extensionExtractDir -Destination $extensionDir
 
     # Preserve unexpanded registry entries such as %USERPROFILE%.
     $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("Environment")
@@ -79,7 +88,7 @@ public static extern IntPtr SendMessageTimeout(
     ) | Out-Null
 
     Write-Host "Installed console-tty; PATH updated (restart other terminals)."
-    Write-Host "1. Unzip $dataDir\console-tty-extension.zip; load that folder at chrome://extensions (Developer mode > Load unpacked)."
+    Write-Host "1. Load $extensionDir at chrome://extensions (Developer mode > Load unpacked)."
     Write-Host "2. Run: console-tty native-host install YOUR_EXTENSION_ID (Edge: add --browser edge)."
 }
 finally {

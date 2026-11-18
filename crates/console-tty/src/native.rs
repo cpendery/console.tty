@@ -499,8 +499,7 @@ mod tests {
     #[tokio::test]
     async fn helper_rejects_a_daemon_that_bypasses_pairing() {
         let paths = Paths {
-            root: std::env::temp_dir()
-                .join(format!("ct-no-bypass-{}", uuid::Uuid::new_v4().simple())),
+            root: std::env::temp_dir().join(format!("ct-{}", uuid::Uuid::new_v4().simple())),
         };
         paths.prepare().unwrap();
         let mut listener = ipc::Listener::bind(&paths.endpoint(false)).unwrap();
