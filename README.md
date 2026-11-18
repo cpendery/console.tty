@@ -14,6 +14,26 @@ Press **Ctrl+Shift+9** to type through the extension's lightly dimmed input ifra
 
 ## Get started
 
+Install the CLI and download the browser extension (no build tools required):
+
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/cpendery/console.tty/main/install.sh | sh
+```
+
+```powershell
+# Windows (x64)
+irm https://raw.githubusercontent.com/cpendery/console.tty/main/install.ps1 | iex
+```
+
+The installer adds the CLI to PATH and saves `console-tty-extension.zip` under
+`console-tty` in Rust's `dirs::data_local_dir()`: `%LOCALAPPDATA%` on Windows,
+`~/Library/Application Support` on macOS, or `${XDG_DATA_HOME:-~/.local/share}`
+on Linux. Unzip it there and follow [Browser setup](#browser-setup).
+Set `CONSOLE_TTY_VERSION` to install a specific release tag.
+
+### Build from source
+
 Building requires Rust 1.90+, Git, Zig 0.16.0 on PATH, Node.js 22+, and a Chromium browser supporting Manifest V3 and Native Messaging. Zig is only a build dependency; the installed executable statically links the Ghostty VT library.
 
 ```powershell
@@ -24,7 +44,9 @@ cargo install --path .\crates\console-tty --locked
 
 The Ghostty binding is pinned to the same revision and Zig version used by tui-test. Put Zig 0.16.0 first on PATH when another Zig version is installed; the pinned build script invokes `zig` directly. Its first build fetches the pinned Ghostty source and Zig packages. Offline builds can prefetch these and set `GHOSTTY_SOURCE_DIR` and `GHOSTTY_ZIG_SYSTEM_DIR`.
 
-1. Open `chrome://extensions` (or `edge://extensions`), enable Developer mode, and **Load unpacked** from `dist\extension`.
+### Browser setup
+
+1. Open `chrome://extensions` (or `edge://extensions`), enable Developer mode, and **Load unpacked** from the extracted extension folder (`dist/extension` for source builds).
 2. Copy the extension's ID and register the installed binary:
 
    ```powershell
@@ -100,9 +122,6 @@ console-tty daemon status
 console-tty client list
 console-tty client revoke CLIENT_ID
 ```
-
-
-
 
 ## Contributing
 
