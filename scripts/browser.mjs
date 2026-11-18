@@ -402,7 +402,7 @@ try {
       ),
     });
   }
-  await page.mouse.click(700, 300);
+  await frame.locator("body").click({ position: { x: 700, y: 300 } });
   assert(
     await frame
       .locator("#sink")
