@@ -1,6 +1,8 @@
 name: Package
 on:
   workflow_dispatch:
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: read
@@ -9,7 +11,17 @@ jobs:
   binary:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -19,9 +31,51 @@ jobs:
           version: "0.16.0"
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked
+      - name: Archive CLI (Unix)
+        if: runner.os != 'Windows'
+        run: tar -czf console-tty-${{ matrix.target }}.tar.gz -C target/release console-tty
+      - name: Archive CLI (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -LiteralPath target/release/console-tty.exe -DestinationPath console-tty-${{ matrix.target }}.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: console-tty-${{ runner.os }}-${{ runner.arch }}
+          name: console-tty-${{ matrix.target }}
           path: |
-            target/release/console-tty
-            target/release/console-tty.exe
+            console-tty-*.tar.gz
+            console-tty-*.zip
+          if-no-files-found: error
+
+  extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: cd dist/extension && zip -qr ../../console-tty-extension.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: console-tty-extension
+          path: console-tty-extension.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [binary, extension]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" release/* --verify-tag --generate-notes
