@@ -78,6 +78,25 @@ try {
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 15000 }));
   const id = new URL(worker.url()).host;
+  const settings = await context.newPage();
+  try {
+    await settings.goto("chrome://extensions");
+    await settings
+      .getByText("Developer mode", { exact: true })
+      .first()
+      .waitFor();
+    const developerMode = settings.getByRole("switch", {
+      name: "Developer mode",
+      exact: true,
+    });
+    if (
+      (await developerMode.count()) > 0 &&
+      (await developerMode.getAttribute("aria-checked")) !== "true"
+    )
+      await developerMode.click();
+  } finally {
+    await settings.close();
+  }
   assert.equal(await worker.evaluate(() => chrome.action.getPopup({})), "");
   await assert.rejects(access(path.join(extension, "popup.html")));
   assert(
