@@ -20,14 +20,6 @@ Windows:
 irm https://raw.githubusercontent.com/cpendery/console.tty/main/install.ps1 | iex
 ```
 
-The installer adds the CLI to PATH and unpacks the browser extension into the folder below. On macOS and Linux, `unzip` is required. Set `CONSOLE_TTY_VERSION` to install a specific release tag.
-
-| Platform | Extension folder                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Windows  | `%LOCALAPPDATA%\console-tty\extension`                                                                                              |
-| macOS    | `~/Library/Application Support/console-tty/extension`                                                                               |
-| Linux    | `$XDG_DATA_HOME/console-tty/extension`, or `~/.local/share/console-tty/extension` when `XDG_DATA_HOME` is unset, empty, or relative |
-
 ### Browser setup
 
 1. Open `chrome://extensions` (or `edge://extensions`)
