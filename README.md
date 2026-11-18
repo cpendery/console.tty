@@ -20,6 +20,16 @@ Windows:
 irm https://raw.githubusercontent.com/cpendery/console.tty/main/install.ps1 | iex
 ```
 
+For a private repository, authenticate with `gh auth login`, then use:
+
+```powershell
+gh api repos/cpendery/console.tty/contents/install.ps1 -H "Accept: application/vnd.github.raw+json" | Out-String | Invoke-Expression
+```
+
+The PowerShell installer uses `gh` to download private release assets when needed.
+Set `$env:CONSOLE_TTY_VERSION = "v0.1.0"` before installing to select that release;
+otherwise, the latest release is installed.
+
 ### Browser setup
 
 1. Open `chrome://extensions` (or `edge://extensions`)

@@ -271,14 +271,35 @@ $worker = Join-Path $extensionPayload "scripts\\worker.js"
 Set-Content -LiteralPath $worker -Value "// fixture"
 $extensionArchive = Join-Path $root "extension.zip"
 Compress-Archive -Path "$extensionPayload\\*" -DestinationPath $extensionArchive
+$global:installTest = @{
+    downloadStatus = 0
+    expectedRelease = "download/v0.1.0"
+    ghDownloads = 0
+    ghExitCode = 0
+}
 function Invoke-WebRequest {
     param($Uri, $OutFile, [switch]$UseBasicParsing)
-    if ($Uri -notlike "*/releases/download/v0.1.0/*") { throw "Wrong release: $Uri" }
-    if ($Uri -like "*/console-tty-x86_64-pc-windows-msvc.zip") {
+    if ($Uri -notlike "*/releases/$($global:installTest.expectedRelease)/*") { throw "Wrong release: $Uri" }
+    if ($global:installTest.downloadStatus) {
+        $response = [System.Net.Http.HttpResponseMessage]::new($global:installTest.downloadStatus)
+        throw [Microsoft.PowerShell.Commands.HttpResponseException]::new("Download failed", $response)
+    }
+    Copy-ReleaseAsset ($Uri.Split("/")[-1]) $OutFile
+}
+function Copy-ReleaseAsset($Name, $OutFile) {
+    if ($Name -eq "console-tty-x86_64-pc-windows-msvc.zip") {
         Copy-Item -LiteralPath (Join-Path $env:INSTALL_TEST_ROOT "cli.zip") -Destination $OutFile
-    } elseif ($Uri -like "*/console-tty-extension.zip") {
+    } elseif ($Name -eq "console-tty-extension.zip") {
         Copy-Item -LiteralPath (Join-Path $env:INSTALL_TEST_ROOT "extension.zip") -Destination $OutFile
-    } else { throw "Wrong asset: $Uri" }
+    } else { throw "Wrong asset: $Name" }
+}
+function gh {
+    $global:installTest.ghDownloads++
+    $expected = @("release", "download", "--repo", "cpendery/console.tty", "--pattern", $args[5], "--output", $args[7], "--clobber")
+    if ($env:CONSOLE_TTY_VERSION -and $env:CONSOLE_TTY_VERSION -ne "latest") { $expected += $env:CONSOLE_TTY_VERSION }
+    if (($args -join "|") -ne ($expected -join "|")) { throw "Wrong gh arguments: $args" }
+    $global:LASTEXITCODE = $global:installTest.ghExitCode
+    if ($global:installTest.ghExitCode -eq 0) { Copy-ReleaseAsset $args[5] $args[7] }
 }
 $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey("Environment")
 $old = $key.GetValue("Path", $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
@@ -300,8 +321,29 @@ try {
     if ($stored -ne "$bin;%USERPROFILE%\\existing") { throw "Wrong persistent PATH: $stored" }
     if (@($env:Path.Split(";") | Where-Object { $_ -eq $bin }).Count -ne 1) { throw "Wrong process PATH" }
     if ($key.GetValueKind("Path") -ne [Microsoft.Win32.RegistryValueKind]::ExpandString) { throw "Lost registry kind" }
+    if ($global:installTest.ghDownloads -ne 0) { throw "Public downloads should not require gh" }
+    foreach ($version in @("v0.1.0", "latest", "")) {
+        $env:CONSOLE_TTY_VERSION = $version
+        $global:installTest.expectedRelease = if ($version -eq "v0.1.0") { "download/v0.1.0" } else { "latest/download" }
+        foreach ($status in @(401, 404)) {
+            $global:installTest.downloadStatus = $status
+            & $env:INSTALL_TEST_SCRIPT
+        }
+    }
+    if ($global:installTest.ghDownloads -ne 12) { throw "Private downloads must use gh for both release assets" }
     $cliBefore = Get-Content -LiteralPath (Join-Path $bin "console-tty.exe") -Raw
     $manifestBefore = Get-Content -LiteralPath (Join-Path $extensionDir "manifest.json") -Raw
+    foreach ($status in @(404, 500)) {
+        $global:installTest.downloadStatus = $status
+        $global:installTest.ghExitCode = 1
+        $failed = $false
+        try { & $env:INSTALL_TEST_SCRIPT } catch { $failed = $true }
+        if (-not $failed) { throw "Failed download was accepted" }
+        if ((Get-Content -LiteralPath (Join-Path $bin "console-tty.exe") -Raw) -ne $cliBefore) { throw "CLI replaced after download failure" }
+        if ((Get-Content -LiteralPath (Join-Path $extensionDir "manifest.json") -Raw) -ne $manifestBefore) { throw "Extension replaced after download failure" }
+    }
+    if ($global:installTest.ghDownloads -ne 13) { throw "Non-authentication failures should not use gh" }
+    $global:installTest.downloadStatus = 0
     foreach ($missingManifest in @($false, $true)) {
         Remove-Item -LiteralPath $extensionArchive
         if ($missingManifest) {

@@ -28,13 +28,39 @@ else {
     $base = "$base/download/$version"
 }
 
+function Get-ConsoleTtyReleaseAsset {
+    param([string]$Name, [string]$Destination)
+    try {
+        Invoke-WebRequest "$base/$Name" -OutFile $Destination -UseBasicParsing
+    }
+    catch {
+        $response = $_.Exception.PSObject.Properties["Response"]
+        if ($null -eq $response -or [int]$response.Value.StatusCode -notin @(401, 404) -or
+            -not (Get-Command gh -ErrorAction SilentlyContinue)) {
+            throw
+        }
+        # Private repositories require an authenticated release download.
+        $downloadArgs = @(
+            "release", "download", "--repo", "cpendery/console.tty",
+            "--pattern", $Name, "--output", $Destination, "--clobber"
+        )
+        if (-not [string]::IsNullOrWhiteSpace($version) -and $version -ne "latest") {
+            $downloadArgs += $version
+        }
+        & gh @downloadArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not download $Name. Run 'gh auth login' with access to cpendery/console.tty."
+        }
+    }
+}
+
 $tempDir = Join-Path ([IO.Path]::GetTempPath()) ("console-tty-" + [Guid]::NewGuid())
 New-Item -ItemType Directory -Path $tempDir | Out-Null
 try {
     $archive = Join-Path $tempDir "cli.zip"
     $extension = Join-Path $tempDir "console-tty-extension.zip"
-    Invoke-WebRequest "$base/console-tty-x86_64-pc-windows-msvc.zip" -OutFile $archive -UseBasicParsing
-    Invoke-WebRequest "$base/console-tty-extension.zip" -OutFile $extension -UseBasicParsing
+    Get-ConsoleTtyReleaseAsset "console-tty-x86_64-pc-windows-msvc.zip" $archive
+    Get-ConsoleTtyReleaseAsset "console-tty-extension.zip" $extension
     $extractDir = Join-Path $tempDir "extract"
     Expand-Archive -LiteralPath $archive -DestinationPath $extractDir
     $files = @(Get-ChildItem -LiteralPath $extractDir -Recurse -Force)
