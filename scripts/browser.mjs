@@ -33,6 +33,18 @@ const root = await mkdtemp(path.join(tmpdir(), "console-tty-browser-"));
 const extension = path.join(root, "extension");
 let context;
 let worker;
+async function waitForBadge(expected) {
+  await worker.evaluate(async (expected) => {
+    const until = Date.now() + 5000;
+    while ((await chrome.action.getBadgeText({})) !== expected) {
+      if (Date.now() >= until)
+        throw new Error(
+          `Extension badge did not become ${JSON.stringify(expected)}`,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }, expected);
+}
 const server = createServer((_request, response) => {
   response.setHeader("Content-Type", "text/html");
   response.end(
@@ -66,6 +78,25 @@ try {
     context.serviceWorkers()[0] ??
     (await context.waitForEvent("serviceworker", { timeout: 15000 }));
   const id = new URL(worker.url()).host;
+  const settings = await context.newPage();
+  try {
+    await settings.goto("chrome://extensions");
+    await settings
+      .getByText("Developer mode", { exact: true })
+      .first()
+      .waitFor();
+    const developerMode = settings.getByRole("switch", {
+      name: "Developer mode",
+      exact: true,
+    });
+    if (
+      (await developerMode.count()) > 0 &&
+      (await developerMode.getAttribute("aria-checked")) !== "true"
+    )
+      await developerMode.click();
+  } finally {
+    await settings.close();
+  }
   assert.equal(await worker.evaluate(() => chrome.action.getPopup({})), "");
   await assert.rejects(access(path.join(extension, "popup.html")));
   assert(
@@ -169,10 +200,7 @@ try {
     pendingMessage.text(),
     `[console.tty] Pair request id: ${requestId}. Run \`console-tty pair ${requestId}\` in local terminal to connect.`,
   );
-  assert.equal(
-    await worker.evaluate(() => chrome.action.getBadgeText({})),
-    "PAIR",
-  );
+  await waitForBadge("PAIR");
   assert(
     (await worker.evaluate(() => chrome.action.getTitle({}))).includes(
       requestId,
@@ -203,7 +231,7 @@ try {
     globalThis.__nativeState.approved = true;
   });
   await connected;
-  assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), "");
+  await waitForBadge("");
   assert.equal(await page.evaluate(() => console.tty()), undefined);
   assert(
     await page.evaluate(() =>
@@ -360,10 +388,7 @@ try {
     .locator("#badge")
     .filter({ hasText: "console.tty input live" })
     .waitFor({ timeout: 10000 });
-  assert.equal(
-    await worker.evaluate(() => chrome.action.getBadgeText({})),
-    "LIVE",
-  );
+  await waitForBadge("LIVE");
   assert.equal(
     await frame.locator("body").evaluate((body) => body.style.backgroundColor),
     "rgba(0, 0, 0, 0.12)",
@@ -402,7 +427,7 @@ try {
       ),
     });
   }
-  await page.mouse.click(700, 300);
+  await frame.locator("body").click({ position: { x: 700, y: 300 } });
   assert(
     await frame
       .locator("#sink")
@@ -533,7 +558,7 @@ try {
   await page
     .locator(`iframe[src="chrome-extension://${id}/input.html"]`)
     .waitFor({ state: "detached" });
-  assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), "");
+  await waitForBadge("");
   assert.equal(
     logs.filter((line) => line.includes("Unsupported extension operation"))
       .length,
@@ -565,7 +590,7 @@ try {
   await page
     .locator(`iframe[src="chrome-extension://${id}/input.html"]`)
     .waitFor({ state: "detached" });
-  assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), "");
+  await waitForBadge("");
 
   await worker.evaluate(() => {
     globalThis.__getCommands = chrome.commands.getAll;
@@ -598,7 +623,7 @@ try {
   await page
     .locator(`iframe[src="chrome-extension://${id}/input.html"]`)
     .waitFor({ state: "detached" });
-  assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), "");
+  await waitForBadge("");
 
   await page.evaluate((id) => {
     const copy = document.createElement("iframe");
@@ -710,7 +735,7 @@ try {
   await page
     .locator(`iframe[src="chrome-extension://${id}/input.html"]`)
     .waitFor({ state: "detached" });
-  assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), "");
+  await waitForBadge("");
   assert.deepEqual(
     await worker.evaluate(() =>
       globalThis.__nativeState.sessions.map((session) => session.session_id),
